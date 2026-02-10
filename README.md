@@ -45,4 +45,22 @@ By executing  the above command you will get migrations and seeders folder along
  - If you're setting up test or prod environment, make sure you also replace the host with the hosted db url.
 
  - migration -version controling of database
+
 - npm run dev
+inside Flights/src
+ to initialize npx sequelize init
+ -to create table npx sequelize db:create
+ npx sequelizemodel:generate --nameAirplane --attributes modelNumber:string,capacity:integer
+  to revert npx sequelize db:migrate:undo
+  -npx sequelize seed:generate --name add-airplanes to create seed file
+  -----
+  see all command from sequelize cl
+  ------------------------------
+  workflow:
+  (after /api)
+  inside api routes ( after /v1)
+  inside v1 routes(after /airplanes)
+  inside airplane routes (after /)
+  controller
+  inside service
+  repository
