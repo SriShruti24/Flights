@@ -50,11 +50,18 @@ By executing  the above command you will get migrations and seeders folder along
 inside Flights/src
  to initialize npx sequelize init
  -to create table npx sequelize db:create
+
+ for Airplane model:
+
  npx sequelizemodel:generate --nameAirplane --attributes modelNumber:string,capacity:integer
   to revert npx sequelize db:migrate:undo
   -npx sequelize seed:generate --name add-airplanes to create seed file
   -----
   see all command from sequelize cl
+
+  for Cities model:
+   npx sequelize model:generate --name City --attributes name:string
+    npx sequelize db:migrate
   ------------------------------
   workflow:
   (after /api)
