@@ -60,8 +60,14 @@ inside Flights/src
   see all command from sequelize cl
 
   for Cities model:
+
    npx sequelize model:generate --name City --attributes name:string
     npx sequelize db:migrate
+
+ for Airport model:
+ 
+ npx sequelize model:generate --name Airport --attributes name:string,code:string,address:string,cityId:integer
+
   ------------------------------
   workflow:
   (after /api)

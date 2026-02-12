@@ -8,5 +8,9 @@ const router=express.Router();
 router.post('/',
     CityMiddlewares.validateCreateCityRequest,
     CityController.createCity);
+// /api/v1/City/:id DELETE
+ router.delete('/:id', CityController.deleteCity);
+// /api/v1/City/:id PUT
+router.put('/:id', CityController.updateCity);
 
 module.exports=router;
