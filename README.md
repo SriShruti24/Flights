@@ -69,6 +69,9 @@ inside Flights/src
  npx sequelize model:generate --name Airport --attributes name:string,code:string,address:string,cityId:integer
   
 Added new sequelize migration:genrate --name update-city-airport-association
+
+for Flights model:
+npx sequelize model:generate --name Flights --attributes FlightNumber:string,airplaneId:integer,departureAirportId:integer,arrivalAirportId:integer,arrivalTime:date,departureTime:date,price:integer,boardingGate:String,totalSeats:integer
   ------------------------------
   workflow:
   (after /api)
