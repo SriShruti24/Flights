@@ -72,6 +72,10 @@ Added new sequelize migration:genrate --name update-city-airport-association
 
 for Flights model:
 npx sequelize model:generate --name Flights --attributes FlightNumber:string,airplaneId:integer,departureAirportId:integer,arrivalAirportId:integer,arrivalTime:date,departureTime:date,price:integer,boardingGate:String,totalSeats:integer
+
+
+Added seeds for seats:
+npx sequelize db:seed --seed 20260217164702-add-seats.js
   ------------------------------
   workflow:
   (after /api)
