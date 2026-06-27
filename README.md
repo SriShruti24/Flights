@@ -1,87 +1,288 @@
-This is a base node js project template, which anyone can use as it has been prepared, by keeping some of the most important code principles and project management recommendations. Feel free to change anything. 
+# Flights Service
 
+## 1. Service Overview
+The **Flights Service** is the central authority for resource scheduling and physical seat mappings within the Booking Mafia microservices ecosystem. It owns and manages the lifecycle of **Cities, Airports, Airplanes, Flights, and Seats**.
 
-`src` -> Inside the src folder all the actual source code regarding the project will reside, this will not include any kind of tests. (You might want to make separate tests folder)
+### Business Responsibilities
+- **Flight Scheduling**: Creating and querying flight schedules including departure/arrival timings, pricing, and gates.
+- **Seat Mapping Ownership**: Generating the physical cabin seat map dynamically upon flight creation based on the associated airplane capacity.
+- **Seat Allocation & Locking**: Performing safe holds, transactional confirmations, and releases on individual seats (e.g., 12A, 15F) using row-level locking.
+- **Real-time Synchronization**: Running an internal chronometer to release holds after expiration and broadcasting live seat changes via WebSockets (Socket.IO).
 
-Lets take a look inside the `src` folder
+---
 
- - `config` -> In this folder anything and everything regarding any configurations or setup of a library or module will be done. For example: setting up `dotenv` so that we can use the environment variables anywhere in a cleaner fashion, this is done in the `server-config.js`. One more example can be to setup you logging library that can help you to prepare meaningful logs, so configuration for this library should also be done here. 
-
- - `routes` -> In the routes folder, we register a route and the corresponding middleware and controllers to it. 
-
- - `middlewares` -> they are just going to intercept the incoming requests where we can write our validators, authenticators etc. 
-
- - `controllers` -> they are kind of the last middlewares as post them you call you business layer to execute the budiness logic. In controllers we just receive the incoming requests and data and then pass it to the business layer, and once business layer returns an output, we structure the API response in controllers and send the output. 
-
- - `repositories` -> this folder contains all the logic using which we interact the DB by writing queries, all the raw queries or ORM queries will go here.
-
- - `services` -> contains the buiness logic and interacts with repositories for data from the database
-
- - `utils` -> contains helper methods, error classes etc.
-
-### Setup the project
-
- - Download this template from github and open it in your favourite text editor. 
- - In the root directory create a `.env` file and add the following env variables
-- Go inside the folder path and execute the following command:
-  ```
-  npm install
-  ```
-    ```
-        PORT=<port number of your choice>
-    ```
-    ex: 
-    ```
-        PORT=3000
-    ```
- - Inside the `src/config` folder  and execute the following command 
- ````
- npx sequelize init
+## 2. Folder Structure
 ```
-By executing  the above command you will get migrations and seeders folder along with a config.json inside the config folder.
+Flights/
+├── src/
+│   ├── config/             # DB & Queue connection initializations
+│   ├── controllers/        # Express HTTP endpoint controllers
+│   ├── migrations/         # Sequelize database DDL schema definitions
+│   ├── models/             # Sequelize ORM schema entities & associations
+│   ├── repositories/       # Core database queries (CRUD pattern)
+│   ├── routes/             # Route maps for v1 endpoints
+│   ├── seeders/            # Database initial data seeds
+│   ├── services/           # Business domain logic (seat maps, holds)
+│   └── utils/
+│       ├── common/         # Cron schedulers, Socket.io emitter singletons
+│       └── errors/         # Custom AppError classifications
+```
+### Folder Responsibilities
+- **`config/`**: Sets up ports and connections to MySQL and RabbitMQ.
+- **`controllers/`**: Deserializes requests, validates user inputs, invokes services, and sends unified JSON HTTP responses.
+- **`services/`**: Orchestrates transactions, evaluates seat pricing adjustments, and coordinates database operations.
+- **`repositories/`**: Decouples Sequelize queries from the business layer using a generic repository pattern.
+- **`utils/common/cron-jobs.js`**: Reclaims expired seat holds periodically and dispatches release events.
+- **`utils/common/socket-emitter.js`**: Singleton WebSocket broker transmitting seat status changes to the frontend.
 
- - If youre setting up your development environment, then write the username of your db, password of your db and in dialect mention whatever db you are using for ex: mysql, mariadb,postgres,SQLite etc
+---
 
- - If you're setting up test or prod environment, make sure you also replace the host with the hosted db url.
+## 3. Architecture Diagram
+```mermaid
+graph TD
+    Client[Web Client] -->|HTTP / WS| Gateway[API Gateway]
+    Gateway -->|HTTP Proxy| FlightsService[Flights Service]
+    FlightsService -->|Sequelize ORM| MySQL[(MySQL Database)]
+    FlightsService -->|AMQP Events| RabbitMQ[RabbitMQ Broker]
+```
 
- - migration -version controling of database
+---
 
-- npm run dev
-inside Flights/src
- to initialize npx sequelize init
- -to create table npx sequelize db:create
+## 4. Sequence Diagrams
 
- for Airplane model:
+### Search Flight
+```mermaid
+sequenceDiagram
+    autonumber
+    Client->>Gateway: GET /flightsService/api/v1/flights?trips=BOM-DEL
+    Gateway->>FlightsService: GET /api/v1/flights?trips=BOM-DEL
+    FlightsService->>MySQL: SELECT * FROM Flights JOIN Airplanes WHERE ...
+    MySQL-->>FlightsService: Row Results
+    FlightsService-->>Gateway: HTTP 200 (Flight List JSON)
+    Gateway-->>Client: Return Flight List
+```
 
- npx sequelizemodel:generate --nameAirplane --attributes modelNumber:string,capacity:integer
-  to revert npx sequelize db:migrate:undo
-  -npx sequelize seed:generate --name add-airplanes to create seed file
-  -----
-  see all command from sequelize cl
+### Seat Hold
+```mermaid
+sequenceDiagram
+    autonumber
+    Client->>Gateway: POST /flightsService/api/v1/flights/:id/seats/hold
+    Gateway->>FlightsService: POST /api/v1/flights/:id/seats/hold
+    FlightsService->>MySQL: START TRANSACTION
+    FlightsService->>MySQL: SELECT * FROM Seats WHERE flightId = :id AND seatNumber IN (...) FOR UPDATE
+    Note over FlightsService,MySQL: Enforces exclusive row-level locking
+    alt Seats Available
+        FlightsService->>MySQL: UPDATE Seats SET status='HOLD', holdBy=:userId, holdUntil=:time
+        FlightsService->>MySQL: COMMIT
+        FlightsService->>RabbitMQ: Publish 'seat.hold.created'
+        FlightsService->>Client: Emit Socket.IO 'seatStatusUpdated' (status: HOLD)
+        FlightsService-->>Gateway: HTTP 200 (Hold seats metadata)
+        Gateway-->>Client: Return hold response
+    else Seats Taken/Locked
+        FlightsService->>MySQL: ROLLBACK
+        FlightsService-->>Gateway: HTTP 400 (Seat Conflict Error)
+        Gateway-->>Client: Return error
+    end
+```
 
-  for Cities model:
+---
 
-   npx sequelize model:generate --name City --attributes name:string
-    npx sequelize db:migrate
+## 5. API Documentation
 
- for Airport model:
+### GET /api/v1/flights
+- **Description**: Query scheduled flights based on search criteria.
+- **Headers**: None
+- **Query Params**:
+  - `trips` (optional): Route code (e.g., `DEP-ARR`)
+  - `tripDate` (optional): Date string (`YYYY-MM-DD`)
+  - `price` (optional): Range filter (`0-500`)
+  - `sort` (optional): Criteria (`price_ASC`, `departureTime_DESC`)
+- **Success Response (200)**:
+  ```json
+  {
+    "success": true,
+    "message": "Successfully fetched all flights",
+    "data": [
+      {
+        "id": 1,
+        "flightNumber": "TEST-17195000000",
+        "price": 250,
+        "departureAirportId": "DEP",
+        "arrivalAirportId": "ARR"
+      }
+    ],
+    "error": {}
+  }
+  ```
 
- npx sequelize model:generate --name Airport --attributes name:string,code:string,address:string,cityId:integer
-  
-Added new sequelize migration:genrate --name update-city-airport-association
+### GET /api/v1/flights/:id/seats
+- **Description**: Fetch all generated seat records and their availability statuses for a flight.
+- **Success Response (200)**:
+  ```json
+  {
+    "success": true,
+    "message": "Successfully fetched seats for the flight",
+    "data": [
+      {
+        "id": 120,
+        "seatNumber": "12A",
+        "seatClass": "ECONOMY",
+        "seatType": "WINDOW",
+        "status": "AVAILABLE",
+        "fareMultiplier": "1.10"
+      }
+    ]
+  }
+  ```
 
-for Flights model:
-npx sequelize model:generate --name Flights --attributes FlightNumber:string,airplaneId:integer,departureAirportId:integer,arrivalAirportId:integer,arrivalTime:date,departureTime:date,price:integer,boardingGate:String,totalSeats:integer
+### POST /api/v1/flights/:id/seats/hold
+- **Description**: Restrict a set of seats temporarily (2 minutes limit) for checkout.
+- **Authentication**: JWT Required
+- **Request Body**:
+  ```json
+  {
+    "seatNumbers": ["12A", "12B"],
+    "holdBy": "5"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "success": true,
+    "data": [
+      {
+        "seatNumber": "12A",
+        "status": "HOLD",
+        "holdUntil": "2026-06-27T16:32:00.000Z"
+      }
+    ]
+  }
+  ```
 
+---
 
-Added seeds for seats:
-npx sequelize db:seed --seed 20260217164702-add-seats.js
-  ------------------------------
-  workflow:
-  (after /api)
-  inside api routes ( after /v1)
-  inside v1 routes(after /airplanes)
-  inside airplane routes (after /)
-  controller
-  inside service
-  repository
+## 6. Database Schema
+```mermaid
+erDiagram
+    CITIES ||--o{ AIRPORTS : "has"
+    AIRPORTS ||--o{ FLIGHTS : "departs/arrives"
+    AIRPLANES ||--o{ FLIGHTS : "operates"
+    FLIGHTS ||--o{ SEATS : "contains"
+
+    CITIES {
+        int id PK
+        string name
+    }
+    AIRPORTS {
+        string code PK
+        string name
+        int cityId FK
+    }
+    AIRPLANES {
+        int id PK
+        string modelNumber
+        int capacity
+    }
+    FLIGHTS {
+        int id PK
+        string flightNumber
+        int airplaneId FK
+        string departureAirportId FK
+        string arrivalAirportId FK
+        datetime departureTime
+        datetime arrivalTime
+        int price
+    }
+    SEATS {
+        int id PK
+        int flightId FK
+        string seatNumber
+        string seatClass
+        string seatType
+        string status
+        string holdBy
+        datetime holdUntil
+        decimal fareMultiplier
+    }
+```
+### Database Pricing Multipliers
+- **Seat Class**: BUSINESS = 2.0x, PREMIUM_ECONOMY = 1.3x, ECONOMY = 1.0x.
+- **Seat Type Adjustments**: WINDOW (Cols A, F) = +0.10, AISLE (Cols C, D) = +0.05.
+- **Exit Row Override**: Row 5 receives `EXTRA_LEG_ROOM` = +0.20 (which overrides window/aisle adjustments).
+
+---
+
+## 7. Service Communication
+- **REST APIs**: Receives synchronous requests from the Booking Service during creation, cancellation, and payment confirmation.
+- **RabbitMQ events**:
+  - Emits `seat.hold.created` on booking holds.
+  - Emits `seat.hold.expired` on hold timeouts.
+  - Emits `seat.booked` on ticket completion.
+  - Emits `seat.released` on checkout cancellations.
+- **Socket.IO (WS)**: Broadcasts `seatStatusUpdated` directly to connected clients in real-time flight rooms.
+
+---
+
+## 8. Docker Documentation
+- **Build Command**:
+  ```bash
+  docker build -t bookingmafia/flights-service:latest .
+  ```
+- **Ports**: Exposes port `3000`.
+- **Environment Variables**:
+  - `PORT=3000`
+  - `DB_HOST=mysql-db`
+  - `RABBITMQ_URL=amqp://rabbitmq-broker:5672`
+
+---
+
+## 9. Kubernetes Documentation
+Managed under `Flights` K8s deployment manifests:
+- **Deployment**: Runs a stateless container replica set with resources throttled to `250m` CPU and `512Mi` Memory.
+- **Service**: Exposes port `3000` inside the cluster namespaces.
+- **ConfigMap**: Holds system configurations (e.g. Database host links, RabbitMQ urls).
+
+---
+
+## 10. Environment Variables
+See `.env.example`:
+```ini
+PORT=3000
+DB_HOST=127.0.0.1
+DB_USER=root
+DB_PASS=password
+DB_NAME=Flights
+RABBITMQ_URL=amqp://localhost
+```
+
+---
+
+## 11. Error Handling Strategy
+- Uses a centralized middleware catching `AppError` exceptions.
+- Converts Sequelize constraint violations (e.g., uniqueness issues on seats) to HTTP 400 Bad Request responses.
+- Implements transaction rolls on query exceptions to preserve atomic database state.
+
+---
+
+## 12. Logging Strategy
+- Utilizes Winston logger format configurations.
+- Categorizes outputs to `info.log` for route calls and `error.log` for database rollback transactions.
+
+---
+
+## 13. Scaling Strategy
+- **Horizontal Scaling**: Stateless design allows running multiple pods behind Kubernetes services.
+- **WebSocket Clustering**: Employs a Socket.IO Redis adapter to distribute seat broadcast updates across pod replicas safely.
+- **Read Replicas**: Directs listing queries to read replicas while transactions target the master DB node.
+
+---
+
+## 14. Security
+- API Gateway executes authentication filters before routing proxy triggers.
+- Restricts SQL Injection vectors using parameter bindings inside Sequelize ORM.
+
+---
+
+## 15. Future Improvements
+- **Redis Cache**: Store generated seat layouts in Redis memory cache to speed up lists under massive traffic queries.
+- **Autoscaling Policies**: Trigger replica scaling based on real-time flight scheduling query load.

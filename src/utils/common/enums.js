@@ -1,9 +1,27 @@
-const SEAT_TYPE={
-    BUSINESS:'business',
-    ECONOMY:'economy',
-    PREMIUM_ECONOMY:'premium-economy',
-    FIRST_CLASS:'first-class'
-}
-module.exports={
-    SEAT_TYPE
-}
+const SEAT_CLASS = {
+    ECONOMY: 'ECONOMY',
+    PREMIUM_ECONOMY: 'PREMIUM_ECONOMY',
+    BUSINESS: 'BUSINESS',
+    FIRST_CLASS: 'FIRST_CLASS'
+};
+
+const SEAT_TYPE = {
+    WINDOW: 'WINDOW',
+    AISLE: 'AISLE',
+    MIDDLE: 'MIDDLE',
+    EXTRA_LEG_ROOM: 'EXTRA_LEG_ROOM'
+};
+
+const SEAT_STATUS = {
+    AVAILABLE: 'AVAILABLE',
+    HOLD: 'HOLD',
+    BOOKED: 'BOOKED',
+    BLOCKED: 'BLOCKED',
+    CHECKED_IN: 'CHECKED_IN'
+};
+
+module.exports = {
+    SEAT_CLASS,
+    SEAT_TYPE,
+    SEAT_STATUS
+};
