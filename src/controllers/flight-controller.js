@@ -1,6 +1,6 @@
 const {StatusCodes}=require('http-status-codes');
 const{FlightService}=require('../services');
-const {ErrorResponse, SuccessResponse, SocketEmitter}=require('../utils/common');
+const {ErrorResponse, SuccessResponse}=require('../utils/common');
 
 async function createFlight(req, res){
     try {
@@ -92,17 +92,7 @@ async function holdSeats(req, res) {
             req.body.holdBy
         );
         
-        // Emit Socket update
-        const io = SocketEmitter.getIo();
-        if (io) {
-            io.to(req.params.id.toString()).emit('seatStatusUpdated', {
-                flightId: req.params.id,
-                seatNumbers: req.body.seatNumbers,
-                status: 'HOLD',
-                holdBy: req.body.holdBy,
-                holdUntil: seats[0]?.holdUntil
-            });
-        }
+
 
         SuccessResponse.data = seats;
         return res.status(StatusCodes.OK).json(SuccessResponse);
@@ -120,17 +110,7 @@ async function releaseSeats(req, res) {
             req.body.holdBy
         );
         
-        // Emit Socket update
-        const io = SocketEmitter.getIo();
-        if (io) {
-            io.to(req.params.id.toString()).emit('seatStatusUpdated', {
-                flightId: req.params.id,
-                seatNumbers: req.body.seatNumbers,
-                status: 'AVAILABLE',
-                holdBy: null,
-                holdUntil: null
-            });
-        }
+
 
         SuccessResponse.data = result;
         return res.status(StatusCodes.OK).json(SuccessResponse);
@@ -148,17 +128,7 @@ async function confirmSeats(req, res) {
             req.body.holdBy
         );
         
-        // Emit Socket update
-        const io = SocketEmitter.getIo();
-        if (io) {
-            io.to(req.params.id.toString()).emit('seatStatusUpdated', {
-                flightId: req.params.id,
-                seatNumbers: req.body.seatNumbers,
-                status: 'BOOKED',
-                holdBy: req.body.holdBy,
-                holdUntil: null
-            });
-        }
+
 
         SuccessResponse.data = seats;
         return res.status(StatusCodes.OK).json(SuccessResponse);

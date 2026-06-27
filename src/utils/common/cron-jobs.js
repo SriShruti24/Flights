@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const { Seat } = require('../../models');
 const { Op } = require('sequelize');
 const { Queue } = require('../../config');
-const SocketEmitter = require('./socket-emitter');
+
 
 function scheduleCrons() {
     cron.schedule('*/1 * * * *', async () => {
@@ -44,17 +44,7 @@ function scheduleCrons() {
                                 holdBy: oldHoldBy
                             });
 
-                            // Emit realtime Socket event
-                            const io = SocketEmitter.getIo();
-                            if (io) {
-                                io.to(lockedSeat.flightId.toString()).emit('seatStatusUpdated', {
-                                    flightId: lockedSeat.flightId,
-                                    seatNumbers: [lockedSeat.seatNumber],
-                                    status: 'AVAILABLE',
-                                    holdBy: null,
-                                    holdUntil: null
-                                });
-                            }
+
 
                             console.log(`Released seat ${lockedSeat.seatNumber} for flight ${lockedSeat.flightId} (held by ${oldHoldBy})`);
                         } else {
