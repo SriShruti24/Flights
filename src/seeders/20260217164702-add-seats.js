@@ -3,89 +3,25 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up (queryInterface, Sequelize) {
-    /**
-     * Add seed commands here.
-     *
-     * Example:
-     * await queryInterface.bulkInsert('People', [{
-     *   name: 'John Doe',
-     *   isBetaMember: false
-     * }], {});
-    */
-   await queryInterface.bulkInsert("Seats", [
-      {
-        airplaneId:5,
-        row:1,
-        col:'A',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:1,
-        col:'B',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:1,
-        col:'C',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:1,
-        col:'D',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:1,
-        col:'E',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:2,
-        col:'A',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:2,
-        col:'B',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:2,
-        col:'C',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:2,
-        col:'D',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      {
-        airplaneId:5,
-        row:2,
-        col:'E',
-        createdAt:new Date(),
-        updatedAt:new Date(),
-      },
-      
-    ]);
+    const airplanes = await queryInterface.sequelize.query(
+      "SELECT id FROM Airplanes LIMIT 1"
+    );
+    const airplaneId = airplanes[0][0].id;
+    
+    const seats = [];
+    ['A', 'B', 'C', 'D', 'E', 'F'].forEach(col => {
+      for(let row = 1; row <= 10; row++) {
+        seats.push({
+          airplaneId: airplaneId,
+          row: row,
+          col: col,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      }
+    });
 
+    await queryInterface.bulkInsert("Seats", seats);
   },
 
   async down (queryInterface, Sequelize) {
