@@ -77,6 +77,9 @@ async function getSeats(req, res) {
     try {
         const seats = await FlightService.getSeatsForFlight(req.params.id);
         SuccessResponse.data = seats;
+        // Prevent browser from caching seat availability — stale 304s break real-time polling
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.set('Pragma', 'no-cache');
         return res.status(StatusCodes.OK).json(SuccessResponse);
     } catch (error) {
         ErrorResponse.error = error;
@@ -91,14 +94,18 @@ async function holdSeats(req, res) {
             req.body.seatNumbers,
             req.body.holdBy
         );
-        
-
-
         SuccessResponse.data = seats;
         return res.status(StatusCodes.OK).json(SuccessResponse);
     } catch (error) {
-        ErrorResponse.error = error;
-        return res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json(ErrorResponse);
+        // Send the real error message (not just the hardcoded 'Something went wrong')
+        // Include conflict flag so the frontend knows to immediately refresh and deselect
+        const isConflict = (error.statusCode === StatusCodes.CONFLICT);
+        return res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: error.message || 'Failed to hold seats',
+            conflict: isConflict,
+            error: error,
+        });
     }
 }
 
