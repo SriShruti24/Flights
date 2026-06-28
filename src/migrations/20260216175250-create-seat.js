@@ -1,6 +1,6 @@
 'use strict';
 const {Enums} =require('../utils/common');
-const{BUSINESS,PREMIUM_ECONOMY,FIRST_CLASS,ECONOMY}=Enums.SEAT_TYPE;
+const{BUSINESS,PREMIUM_ECONOMY,FIRST_CLASS,ECONOMY}=Enums.SEAT_CLASS;
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
