@@ -7,6 +7,16 @@ module.exports = {
     const flights = [];
     let flightCount = 1;
 
+    // INR base prices by duration bucket
+    // 1h  → ₹1,400 – ₹4,500
+    // 2h  → ₹3,800 – ₹10,000
+    // 3h  → ₹7,500 – ₹20,000
+    const inrPriceTiers = {
+      1: [1400, 1800, 2200, 2600, 3000, 3500, 4000, 4500],
+      2: [3800, 4500, 5200, 6000, 6800, 7500, 8500, 10000],
+      3: [7500, 9000, 10500, 12000, 14000, 16000, 18000, 20000],
+    };
+
     for (let i = 0; i < airports.length; i++) {
       for (let j = 0; j < airports.length; j++) {
         if (i === j) continue;
@@ -28,11 +38,13 @@ module.exports = {
 
         const departureTime = new Date(baseDate);
         
-        const durationHours = 1 + (flightCount % 3);
+        const durationHours = 1 + (flightCount % 3);   // 1, 2, or 3 hours
         const arrivalTime = new Date(departureTime);
         arrivalTime.setHours(arrivalTime.getHours() + durationHours);
 
-        const price = 50 + (flightCount % 15) * 10; 
+        // Pick price from tier table — use (i + j) as a deterministic offset per route pair
+        const tier = inrPriceTiers[durationHours];
+        const price = tier[(i + j) % tier.length];
 
         flights.push({
           id: flightCount,
